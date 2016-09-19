@@ -22,6 +22,8 @@
 
 #include <stdint.h>
 
+#include "SDL.h"
+
 enum HorizontalAlignment {
 	LEFT,
 	CENTER,
@@ -34,25 +36,12 @@ enum VerticalAlignment {
 	BOTTOM
 };
 
-struct StringCut {
-	uint32_t Start;  // Starting character index of the cut, inclusive.
-	uint32_t End;    // Ending character index of the cut, exclusive.
-};
-
-void PrintString16(const char* String, uint16_t TextColor,
-	void* Dest, uint32_t DestPitch, uint32_t X, uint32_t Y, uint32_t Width, uint32_t Height,
+void PrintString(SDL_Renderer* Renderer, const char* String,
+	const SDL_Color* TextColor, const SDL_Rect* Dest,
 	enum HorizontalAlignment HorizontalAlignment, enum VerticalAlignment VerticalAlignment);
 
-void PrintStringOutline16(const char* String, uint16_t TextColor, uint16_t OutlineColor,
-	void* Dest, uint32_t DestPitch, uint32_t X, uint32_t Y, uint32_t Width, uint32_t Height,
-	enum HorizontalAlignment HorizontalAlignment, enum VerticalAlignment VerticalAlignment);
-
-void PrintString32(const char* String, uint32_t TextColor,
-	void* Dest, uint32_t DestPitch, uint32_t X, uint32_t Y, uint32_t Width, uint32_t Height,
-	enum HorizontalAlignment HorizontalAlignment, enum VerticalAlignment VerticalAlignment);
-
-void PrintStringOutline32(const char* String, uint32_t TextColor, uint32_t OutlineColor,
-	void* Dest, uint32_t DestPitch, uint32_t X, uint32_t Y, uint32_t Width, uint32_t Height,
+void PrintStringOutline(SDL_Renderer* Renderer, const char* String,
+	const SDL_Color* TextColor, const SDL_Color* OutlineColor, const SDL_Rect* Dest,
 	enum HorizontalAlignment HorizontalAlignment, enum VerticalAlignment VerticalAlignment);
 
 extern uint32_t GetRenderedWidth(const char* str);

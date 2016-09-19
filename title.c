@@ -59,9 +59,9 @@ void TitleScreenGatherInput(bool* Continue)
 
 	while (SDL_PollEvent(&ev))
 	{
-		if (IsEnterGamePressingEvent(&ev))
+		if (!WaitingForRelease && IsEnterGamePressingEvent(&ev))
 			WaitingForRelease = true;
-		else if (IsEnterGameReleasingEvent(&ev))
+		else if (WaitingForRelease && IsEnterGameReleasingEvent(&ev))
 		{
 			WaitingForRelease = false;
 			ToGame();
@@ -81,6 +81,10 @@ void TitleScreenGatherInput(bool* Continue)
 				WelcomeMessage = NULL;
 			}
 			return;
+		}
+		else if (IsToggleFullscreenEvent(&ev))
+		{
+			ToggleFullscreen();
 		}
 	}
 }
@@ -107,39 +111,52 @@ void TitleScreenDoLogic(bool* Continue, bool* Error, Uint32 Milliseconds)
 
 void TitleScreenOutputFrame()
 {
+	SDL_SetRenderTarget(Renderer, Screen);
+	SDL_RenderClear(Renderer);
+
 	DrawBackground();
 
+	int Width = 0;
+	int Height = 0;
+	SDL_QueryTexture(TitleScreenFrames[0], NULL, NULL, &Width, &Height);
 	SDL_Rect HeaderDestRect = {
-		.x = (SCREEN_WIDTH - TitleScreenFrames[0]->w) / 2,
-		.y = ((SCREEN_HEIGHT / 4) - TitleScreenFrames[0]->h) / 2,
-		.w = TitleScreenFrames[0]->w,
-		.h = TitleScreenFrames[0]->h
+		.x = (SCREEN_WIDTH - Width) / 2,
+		.y = ((SCREEN_HEIGHT / 4) - Height) / 2,
+		.w = Width,
+		.h = Height
 	};
 	SDL_Rect HeaderSourceRect = {
 		.x = 0,
 		.y = 0,
-		.w = TitleScreenFrames[0]->w,
-		.h = TitleScreenFrames[0]->h
+		.w = Width,
+		.h = Height
 	};
-	SDL_BlitSurface(TitleScreenFrames[HeaderFrameAnimation[HeaderFrame]], &HeaderSourceRect, Screen, &HeaderDestRect);
+	SDL_RenderCopy(Renderer, TitleScreenFrames[HeaderFrameAnimation[HeaderFrame]], &HeaderSourceRect, &HeaderDestRect);
 
-	if (SDL_MUSTLOCK(Screen))
-		SDL_LockSurface(Screen);
-	PrintStringOutline32(WelcomeMessage,
-		SDL_MapRGB(Screen->format, 255, 255, 255),
-		SDL_MapRGB(Screen->format, 0, 0, 0),
-		Screen->pixels,
-		Screen->pitch,
-		0,
-		SCREEN_HEIGHT / 4,
-		SCREEN_WIDTH,
-		SCREEN_HEIGHT - (SCREEN_HEIGHT / 4),
-		CENTER,
-		MIDDLE);
-	if (SDL_MUSTLOCK(Screen))
-		SDL_UnlockSurface(Screen);
+	SDL_Color TextColor = {
+		.r = 255,
+		.g = 255,
+		.b = 255,
+		.a = 255
+	};
+	SDL_Color OutlineColor = {
+		.r = 0,
+		.g = 0,
+		.b = 0,
+		.a = 255
+	};
+	SDL_Rect Dest = {
+		.x = 0,
+		.y = SCREEN_HEIGHT / 4,
+		.w = SCREEN_WIDTH,
+		.h = SCREEN_HEIGHT - (SCREEN_HEIGHT / 4)
+	};
+	PrintStringOutline(Renderer, WelcomeMessage, &TextColor, &OutlineColor, &Dest, CENTER, MIDDLE);
 
-	SDL_Flip(Screen);
+	SDL_SetRenderTarget(Renderer, NULL);
+	SDL_RenderClear(Renderer);
+	SDL_RenderCopy(Renderer, Screen, NULL, NULL);
+	SDL_RenderPresent(Renderer);
 }
 
 void ToTitleScreen(void)
@@ -148,7 +165,7 @@ void ToTitleScreen(void)
 	{
 		int Length = 2, NewLength;
 		WelcomeMessage = malloc(Length);
-		while ((NewLength = snprintf(WelcomeMessage, Length, "Press %s to play\nor %s to exit\n\nIn-game:\n%s to rise\n%s to pause\n%s to exit", GetEnterGamePrompt(), GetExitGamePrompt(), GetBoostPrompt(), GetPausePrompt(), GetExitGamePrompt())) >= Length)
+		while ((NewLength = snprintf(WelcomeMessage, Length, "Press %s to play\n%s to toggle fullscreen\nor %s to exit\n\nIn-game:\n%s to rise\n%s to pause\n%s to exit", GetEnterGamePrompt(), GetToggleFullscreenPrompt(), GetExitGamePrompt(), GetBoostPrompt(), GetPausePrompt(), GetExitGamePrompt())) >= Length)
 		{
 			Length = NewLength + 1;
 			WelcomeMessage = realloc(WelcomeMessage, Length);

@@ -52,9 +52,9 @@ void ScoreGatherInput(bool* Continue)
 
 	while (SDL_PollEvent(&ev))
 	{
-		if (IsEnterGamePressingEvent(&ev))
+		if (!WaitingForRelease && IsEnterGamePressingEvent(&ev))
 			WaitingForRelease = true;
-		else if (IsEnterGameReleasingEvent(&ev))
+		else if (WaitingForRelease && IsEnterGameReleasingEvent(&ev))
 		{
 			WaitingForRelease = false;
 			ToGame();
@@ -75,6 +75,10 @@ void ScoreGatherInput(bool* Continue)
 			}
 			return;
 		}
+		else if (IsToggleFullscreenEvent(&ev))
+		{
+			ToggleFullscreen();
+		}
 	}
 }
 
@@ -85,39 +89,52 @@ void ScoreDoLogic(bool* Continue, bool* Error, Uint32 Milliseconds)
 
 void ScoreOutputFrame()
 {
+	SDL_SetRenderTarget(Renderer, Screen);
+	SDL_RenderClear(Renderer);
+
 	DrawBackground();
 
+	int Width = 0;
+	int Height = 0;
+	SDL_QueryTexture(GameOverFrame, NULL, NULL, &Width, &Height);
 	SDL_Rect HeaderDestRect = {
-		.x = (SCREEN_WIDTH - GameOverFrame->w) / 2,
-		.y = ((SCREEN_HEIGHT / 4) - GameOverFrame->h) / 2,
-		.w = GameOverFrame->w,
-		.h = GameOverFrame->h
+		.x = (SCREEN_WIDTH - Width) / 2,
+		.y = ((SCREEN_HEIGHT / 4) - Height) / 2,
+		.w = Width,
+		.h = Height
 	};
 	SDL_Rect HeaderSourceRect = {
 		.x = 0,
 		.y = 0,
-		.w = GameOverFrame->w,
-		.h = GameOverFrame->h
+		.w = Width,
+		.h = Height
 	};
-	SDL_BlitSurface(GameOverFrame, &HeaderSourceRect, Screen, &HeaderDestRect);
+	SDL_RenderCopy(Renderer, GameOverFrame, &HeaderSourceRect, &HeaderDestRect);
 
-	if (SDL_MUSTLOCK(Screen))
-		SDL_LockSurface(Screen);
-	PrintStringOutline32(ScoreMessage,
-		SDL_MapRGB(Screen->format, 255, 255, 255),
-		SDL_MapRGB(Screen->format, 0, 0, 0),
-		Screen->pixels,
-		Screen->pitch,
-		0,
-		SCREEN_HEIGHT / 4,
-		SCREEN_WIDTH,
-		SCREEN_HEIGHT - (SCREEN_HEIGHT / 4),
-		CENTER,
-		MIDDLE);
-	if (SDL_MUSTLOCK(Screen))
-		SDL_UnlockSurface(Screen);
+	SDL_Color TextColor = {
+		.r = 255,
+		.g = 255,
+		.b = 255,
+		.a = 255
+	};
+	SDL_Color OutlineColor = {
+		.r = 0,
+		.g = 0,
+		.b = 0,
+		.a = 255
+	};
+	SDL_Rect Dest = {
+		.x = 0,
+		.y = SCREEN_HEIGHT / 4,
+		.w = SCREEN_WIDTH,
+		.h = SCREEN_HEIGHT - (SCREEN_HEIGHT / 4)
+	};
+	PrintStringOutline(Renderer, ScoreMessage, &TextColor, &OutlineColor, &Dest, CENTER, MIDDLE);
 
-	SDL_Flip(Screen);
+	SDL_SetRenderTarget(Renderer, NULL);
+	SDL_RenderClear(Renderer);
+	SDL_RenderCopy(Renderer, Screen, NULL, NULL);
+	SDL_RenderPresent(Renderer);
 }
 
 void ToScore(uint32_t Score, enum GameOverReason GameOverReason, uint32_t HighScore)
@@ -150,7 +167,7 @@ void ToScore(uint32_t Score, enum GameOverReason GameOverReason, uint32_t HighSc
 		snprintf(HighScoreString, 256, "High Score: %" PRIu32, HighScore);
 	}
 
-	while ((NewLength = snprintf(ScoreMessage, Length, "%s\n\nYour score was %" PRIu32 "\n\n%s\n\nPress %s to play again\nor %s to exit", GameOverReasonString, Score, HighScoreString, GetEnterGamePrompt(), GetExitGamePrompt())) >= Length)
+	while ((NewLength = snprintf(ScoreMessage, Length, "%s\n\nYour score was %" PRIu32 "\n\n%s\n\nPress %s to play again\n%s to toggle fullscreen\nor %s to exit", GameOverReasonString, Score, HighScoreString, GetEnterGamePrompt(), GetToggleFullscreenPrompt(), GetExitGamePrompt())) >= Length)
 	{
 		Length = NewLength + 1;
 		ScoreMessage = realloc(ScoreMessage, Length);

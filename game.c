@@ -298,6 +298,9 @@ void GameDoLogic(bool* Continue, bool* Error, Uint32 Milliseconds)
 
 void GameOutputFrame()
 {
+	SDL_SetRenderTarget(Renderer, Screen);
+	SDL_RenderClear(Renderer);
+
 	// Draw the background.
 	DrawBackground();
 
@@ -320,7 +323,7 @@ void GameOutputFrame()
 			ColumnSourceRect.y = 480 - ColumnDestRect.h;
 		}
 		ColumnSourceRect.x = 64 * Rectangles[i].Frame;
-		SDL_BlitSurface(ColumnImage, &ColumnSourceRect, Screen, &ColumnDestRect);
+		SDL_RenderCopy(Renderer, ColumnImage, &ColumnSourceRect, &ColumnDestRect);
 	}
 
 	uint32_t PassedCount = 0;
@@ -334,40 +337,50 @@ void GameOutputFrame()
 	// Above, we grabbed the number of passed rectangles, so now we can get
 	// the score represented by the first rectangle shown.
 	uint32_t RectScore = Score - PassedCount;
-	if (SDL_MUSTLOCK(Screen))
-		SDL_LockSurface(Screen);
 	for (i = 0; i < RectangleCount; i += 2)
 	{
 		RectScore++;
 		char RectScoreString[11];
-		sprintf(RectScoreString, "%" PRIu32, RectScore);
+		snprintf(RectScoreString, sizeof RectScoreString, "%" PRIu32, RectScore);
 		uint32_t RenderedWidth = GetRenderedWidth(RectScoreString) + 2;
 		int32_t Left = (int32_t) (((Rectangles[i].Left + Rectangles[i].Right) / 2) * SCREEN_WIDTH / FIELD_WIDTH) - RenderedWidth / 2;
 
 		if (Left >= 0 && Left + RenderedWidth < SCREEN_WIDTH)
 		{
-			Uint32 RectScoreColor;
+			SDL_Color RectScoreColor;
 			if (Rectangles[i].Passed)
-				RectScoreColor = SDL_MapRGB(Screen->format, 64, 255, 64); // green
+			{
+				// green
+				RectScoreColor.r = 64;
+				RectScoreColor.g = 255;
+				RectScoreColor.b = 64;
+				RectScoreColor.a = 255;
+			}
 			else
-				RectScoreColor = SDL_MapRGB(Screen->format, 255, 255, 255); // white
-			PrintStringOutline32(RectScoreString,
-				RectScoreColor,
-				SDL_MapRGB(Screen->format, 0, 0, 0),
-				Screen->pixels,
-				Screen->pitch,
-				Left,
+			{
+				// white
+				RectScoreColor.r = 255;
+				RectScoreColor.g = 255;
+				RectScoreColor.b = 255;
+				RectScoreColor.a = 255;
+			}
+			SDL_Color OutlineColor = {
+				.r = 0,
+				.g = 0,
+				.b = 0,
+				.a = 255
+			};
+			SDL_Rect Dest = {
+				.x = Left,
 				/* Even-numbered rectangle indices are at the top of the field,
 				 * so start the Y below that. */
-				SCREEN_HEIGHT - (int) (Rectangles[i].Bottom * SCREEN_HEIGHT / FIELD_HEIGHT),
-				RenderedWidth,
-				(int) (GAP_HEIGHT * SCREEN_HEIGHT / FIELD_HEIGHT),
-				CENTER,
-				MIDDLE);
+				.y = SCREEN_HEIGHT - (int) (Rectangles[i].Bottom * SCREEN_HEIGHT / FIELD_HEIGHT),
+				.w = RenderedWidth,
+				.h = (int) (GAP_HEIGHT * SCREEN_HEIGHT / FIELD_HEIGHT)
+			};
+			PrintStringOutline(Renderer, RectScoreString, &RectScoreColor, &OutlineColor, &Dest, CENTER, MIDDLE);
 		}
 	}
-	if (SDL_MUSTLOCK(Screen))
-		SDL_UnlockSurface(Screen);
 
 	// Draw the character.
 	SDL_Rect PlayerDestRect = {
@@ -406,10 +419,16 @@ void GameOutputFrame()
 			}
 			if (PlayerBlinking)
 				PlayerSourceRect.x += 64;
-			SDL_BlitSurface(CharacterFrames, &PlayerSourceRect, Screen, &PlayerDestRect);
+			SDL_RenderCopy(Renderer, CharacterFrames, &PlayerSourceRect, &PlayerDestRect);
 #ifdef DRAW_BEE_COLLISION
-			SDL_FillRect(Screen, &PlayerPixelsA, SDL_MapRGB(Screen->format, 255, 255, 255));
-			SDL_FillRect(Screen, &PlayerPixelsB, SDL_MapRGB(Screen->format, 255, 255, 255));
+			{
+				SDL_Color OldColor;
+				SDL_GetRenderDrawColor(Renderer, &OldColor.r, &OldColor.g, &OldColor.b, &OldColor.a);
+				SDL_SetRenderDrawColor(Renderer, 255, 255, 255, 255);
+				SDL_RenderFillRect(Renderer, &PlayerPixelsA);
+				SDL_RenderFillRect(Renderer, &PlayerPixelsB);
+				SDL_SetRenderDrawColor(Renderer, OldColor.r, OldColor.g, OldColor.b, OldColor.a);
+			}
 #endif
 			break;
 
@@ -420,16 +439,19 @@ void GameOutputFrame()
 			PlayerDestRect.y -= 8;
 			PlayerDestRect.w += 16;
 			PlayerDestRect.h += 16;
-			SDL_BlitSurface(CollisionImage, &PlayerSourceRect, Screen, &PlayerDestRect);
+			SDL_RenderCopy(Renderer, CollisionImage, &PlayerSourceRect, &PlayerDestRect);
 			break;
 
 		case DYING:
 			PlayerSourceRect.x = 256 + 32 * PlayerFrame;
-			SDL_BlitSurface(CharacterFrames, &PlayerSourceRect, Screen, &PlayerDestRect);
+			SDL_RenderCopy(Renderer, CharacterFrames, &PlayerSourceRect, &PlayerDestRect);
 			break;
 	}
 
-	SDL_Flip(Screen);
+	SDL_SetRenderTarget(Renderer, NULL);
+	SDL_RenderClear(Renderer);
+	SDL_RenderCopy(Renderer, Screen, NULL, NULL);
+	SDL_RenderPresent(Renderer);
 }
 
 void ToGame(void)

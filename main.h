@@ -30,15 +30,19 @@ typedef void (*TGatherInput) (bool* Continue);
 typedef void (*TDoLogic) (bool* Continue, bool* Error, Uint32 Milliseconds);
 typedef void (*TOutputFrame) (void);
 
-extern SDL_Surface* Screen;
-extern SDL_Surface* TitleScreenFrames[TITLE_FRAME_COUNT];
-extern SDL_Surface* BackgroundImages[BG_LAYER_COUNT];
-extern SDL_Surface* CharacterFrames;
-extern SDL_Surface* ColumnImage;
-extern SDL_Surface* CollisionImage;
-extern SDL_Surface* GameOverFrame;
-extern TGatherInput GatherInput;
-extern TDoLogic     DoLogic;
-extern TOutputFrame OutputFrame;
+extern SDL_Window*   Window;
+extern SDL_Renderer* Renderer;
+extern SDL_Texture*  Screen;
+extern SDL_Texture*  TitleScreenFrames[TITLE_FRAME_COUNT];
+extern SDL_Texture*  BackgroundImages[BG_LAYER_COUNT];
+extern SDL_Texture*  CharacterFrames;
+extern SDL_Texture*  ColumnImage;
+extern SDL_Texture*  CollisionImage;
+extern SDL_Texture*  GameOverFrame;
+extern TGatherInput  GatherInput;
+extern TDoLogic      DoLogic;
+extern TOutputFrame  OutputFrame;
+
+extern void ToggleFullscreen(void);
 
 #endif /* !defined(_MAIN_H_) */

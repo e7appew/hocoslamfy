@@ -27,20 +27,34 @@
 #include "platform.h"
 #include "SDL_image.h"
 
-static bool         Continue                             = true;
-static bool         Error                                = false;
+static bool          Continue                             = true;
+static bool          Error                                = false;
 
-       SDL_Surface* Screen                               = NULL;
-       SDL_Surface* TitleScreenFrames[TITLE_FRAME_COUNT] = { NULL };
-       SDL_Surface* BackgroundImages[BG_LAYER_COUNT]     = { NULL };
-       SDL_Surface* CharacterFrames                      = NULL;
-       SDL_Surface* ColumnImage                          = NULL;
-       SDL_Surface* CollisionImage                       = NULL;
-       SDL_Surface* GameOverFrame                        = NULL;
+       SDL_Window*   Window                               = NULL;
+       SDL_Renderer* Renderer                             = NULL;
+       SDL_Texture*  Screen                               = NULL;
+       SDL_Texture*  TitleScreenFrames[TITLE_FRAME_COUNT] = { NULL };
+       SDL_Texture*  BackgroundImages[BG_LAYER_COUNT]     = { NULL };
+       SDL_Texture*  CharacterFrames                      = NULL;
+       SDL_Texture*  ColumnImage                          = NULL;
+       SDL_Texture*  CollisionImage                       = NULL;
+       SDL_Texture*  GameOverFrame                        = NULL;
 
-       TGatherInput GatherInput;
-       TDoLogic     DoLogic;
-       TOutputFrame OutputFrame;
+       TGatherInput  GatherInput;
+       TDoLogic      DoLogic;
+       TOutputFrame  OutputFrame;
+
+void ToggleFullscreen(void)
+{
+	Uint32 Flags = (SDL_GetWindowFlags(Window) ^ SDL_WINDOW_FULLSCREEN_DESKTOP);
+	if (SDL_SetWindowFullscreen(Window, Flags) != 0)
+		printf("Failed to toggle fullscreen mode: %s\n", SDL_GetError());
+	else if ((Flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
+		printf("Entering fullscreen mode\n");
+	else
+		printf("Entering windowed mode\n");
+
+}
 
 int main(int argc, char* argv[])
 {

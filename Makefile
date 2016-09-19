@@ -13,7 +13,7 @@ else
 endif
 
 SYSROOT     := $(shell $(CC) --print-sysroot)
-SDL_CONFIG  ?= $(SYSROOT)/usr/bin/sdl-config
+SDL_CONFIG  ?= $(SYSROOT)/usr/bin/sdl2-config
 SDL_CFLAGS  := $(shell $(SDL_CONFIG) --cflags)
 SDL_LIBS    := $(shell $(SDL_CONFIG) --libs)
 
@@ -26,7 +26,7 @@ DEFS        +=
 
 CFLAGS       = $(SDL_CFLAGS) -Wall -Wno-unused-variable \
                -O2 -fomit-frame-pointer $(DEFS) $(INCLUDE)
-LDFLAGS     := $(SDL_LIBS) -lm -lSDL_image -lSDL_mixer
+LDFLAGS     := $(SDL_LIBS) -lm -lSDL2_image -lSDL2_mixer
 
 ifneq (, $(findstring MINGW, $(shell uname -s)))
 	CFLAGS+=-DDONT_USE_PWD

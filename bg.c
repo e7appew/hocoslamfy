@@ -76,6 +76,6 @@ void DrawBackground(void)
 			.y = BG_StartY[i],
 			.w = SCREEN_WIDTH,
 			.h = BG_Height[i] };
-		SDL_BlitSurface(BackgroundImages[i], &SourceRect, Screen, &DestRect);
+		SDL_RenderCopy(Renderer, BackgroundImages[i], &SourceRect, &DestRect);
 	}
 }

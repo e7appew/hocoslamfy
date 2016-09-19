@@ -51,11 +51,16 @@ static const char* TitleScreenFrameNames[TITLE_FRAME_COUNT] = {
 	"TitleHeader8.png"
 };
 
+static const char* FullPath(const char* Path)
+{
+	static char path[256];
+	snprintf(path, sizeof path, DATA_PATH "%s", Path);
+	return path;
+}
+
 static SDL_Surface* LoadImage(const char* Path)
 {
-	char path[256];
-	snprintf(path, 256, DATA_PATH "%s", Path);
-	return IMG_Load(path);
+	return IMG_Load(FullPath(Path));
 }
 
 static bool CheckImage(bool* Continue, bool* Error, const SDL_Surface* Image, const char* Name)
@@ -68,31 +73,24 @@ static bool CheckImage(bool* Continue, bool* Error, const SDL_Surface* Image, co
 	}
 	else
 	{
-		printf("Successfully loaded %s\n", Name);
+		printf("Successfully loaded image %s\n", Name);
 		return true;
 	}
 }
 
-static SDL_Surface* ConvertSurface(bool* Continue, bool* Error, SDL_Surface* Source, const char* Name)
+static SDL_Texture* LoadTexture(bool* Continue, bool* Error, const char* Name)
 {
-	SDL_Surface* Dest;
-	if (Source->format->Amask != 0)
-		Dest = SDL_DisplayFormatAlpha(Source);
-	else
-		Dest = SDL_DisplayFormat(Source);
-	if (Dest == NULL)
+	SDL_Texture* Texture = IMG_LoadTexture(Renderer, FullPath(Name));
+	if (Texture == NULL)
 	{
 		*Continue = false;  *Error = true;
-		printf("%s: SDL_ConvertSurface failed: %s\n", Name, SDL_GetError());
-		SDL_ClearError();
-		return NULL;
+		printf("%s: LoadTexture failed: %s\n", Name, IMG_GetError());
 	}
 	else
 	{
-		printf("Successfully converted %s to the screen's pixel format\n", Name);
-		SDL_FreeSurface(Source);
-		return Dest;
+		printf("Successfully loaded texture %s\n", Name);
 	}
+	return Texture;
 }
 
 void Initialize(bool* Continue, bool* Error)
@@ -105,70 +103,78 @@ void Initialize(bool* Continue, bool* Error)
 		return;
 	} else printf("SDL initialisation succeeded\n");
 
-	SDL_Surface* WindowIcon = LoadImage("hocoslamfy.png");
-	if (!CheckImage(Continue, Error, WindowIcon, "hocoslamfy.png"))
-		return;
-	SDL_WM_SetIcon(WindowIcon, NULL);
-	SDL_WM_SetCaption("hocoslamfy", "hocoslamfy");
-
-	Screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_HWSURFACE |
-#ifdef SDL_TRIPLEBUF
-		SDL_TRIPLEBUF
-#else
-		SDL_DOUBLEBUF
-#endif
-		);
-
-	if (Screen == NULL)
+	if (IMG_Init(IMG_INIT_PNG) == 0)
 	{
 		*Continue = false;  *Error = true;
-		printf("SDL_SetVideoMode failed: %s\n", SDL_GetError());
+		printf("IMG initialisation failed: %s\n", IMG_GetError());
+		return;
+	} else printf("IMG initialisation succeeded\n");
+
+	Window = SDL_CreateWindow("hocoslamfy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_HIDDEN);
+	if (Window == NULL)
+	{
+		*Continue = false;  *Error = true;
+		printf("SDL_CreateWindow failed: %s\n", SDL_GetError());
 		SDL_ClearError();
 		return;
 	}
 	else
-		printf("SDL_SetVideoMode succeeded\n");
+		printf("SDL_CreateWindow succeeded\n");
 
+	SDL_Surface* WindowIcon = LoadImage("hocoslamfy.png");
+	if (!CheckImage(Continue, Error, WindowIcon, "hocoslamfy.png"))
+		return;
+	SDL_SetWindowIcon(Window, WindowIcon);
+	SDL_FreeSurface(WindowIcon);
+
+	Renderer = SDL_CreateRenderer(Window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
+	if (Renderer == NULL)
+	{
+		*Continue = false;  *Error = true;
+		printf("SDL_CreateRenderer failed: %s\n", SDL_GetError());
+		SDL_ClearError();
+		return;
+	}
+	else
+		printf("SDL_CreateRenderer succeeded\n");
+
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+	SDL_RenderSetLogicalSize(Renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+	SDL_SetWindowFullscreen(Window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	SDL_ShowCursor(0);
+	SDL_ShowWindow(Window);
+
+	Screen = SDL_CreateTexture(Renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+	if (Screen == NULL)
+	{
+		*Continue = false;  *Error = true;
+		printf("SDL_CreateTexture failed: %s\n", SDL_GetError());
+		SDL_ClearError();
+		return;
+	}
+	else
+		printf("SDL_CreateTexture succeeded\n");
 
 	uint32_t i;
 	for (i = 0; i < BG_LAYER_COUNT; i++)
 	{
-		BackgroundImages[i] = LoadImage(BackgroundImageNames[i]);
-		if (!CheckImage(Continue, Error, BackgroundImages[i], BackgroundImageNames[i]))
-			return;
-		if ((BackgroundImages[i] = ConvertSurface(Continue, Error, BackgroundImages[i], BackgroundImageNames[i])) == NULL)
+		if ((BackgroundImages[i] = LoadTexture(Continue, Error, BackgroundImageNames[i])) == NULL)
 			return;
 	}
 
 	for (i = 0; i < TITLE_FRAME_COUNT; i++)
 	{
-		TitleScreenFrames[i] = LoadImage(TitleScreenFrameNames[i]);
-		if (!CheckImage(Continue, Error, TitleScreenFrames[i], TitleScreenFrameNames[i]))
-			return;
-		if ((TitleScreenFrames[i] = ConvertSurface(Continue, Error, TitleScreenFrames[i], TitleScreenFrameNames[i])) == NULL)
+		if ((TitleScreenFrames[i] = LoadTexture(Continue, Error, TitleScreenFrameNames[i])) == NULL)
 			return;
 	}
 
-	CharacterFrames = LoadImage("Bee.png");
-	if (!CheckImage(Continue, Error, CharacterFrames, "Bee.png"))
+	if ((CharacterFrames = LoadTexture(Continue, Error, "Bee.png")) == NULL)
 		return;
-	if ((CharacterFrames = ConvertSurface(Continue, Error, CharacterFrames, "Bee.png")) == NULL)
+	if ((CollisionImage = LoadTexture(Continue, Error, "Crash.png")) == NULL)
 		return;
-	CollisionImage = LoadImage("Crash.png");
-	if (!CheckImage(Continue, Error, CollisionImage, "Crash.png"))
+	if ((ColumnImage = LoadTexture(Continue, Error, "Bamboo.png")) == NULL)
 		return;
-	if ((CollisionImage = ConvertSurface(Continue, Error, CollisionImage, "Crash.png")) == NULL)
-		return;
-	ColumnImage = LoadImage("Bamboo.png");
-	if (!CheckImage(Continue, Error, ColumnImage, "Bamboo.png"))
-		return;
-	if ((ColumnImage = ConvertSurface(Continue, Error, ColumnImage, "Bamboo.png")) == NULL)
-		return;
-	GameOverFrame = LoadImage("GameOverHeader.png");
-	if (!CheckImage(Continue, Error, GameOverFrame, "GameOverHeader.png"))
-		return;
-	if ((GameOverFrame = ConvertSurface(Continue, Error, GameOverFrame, "GameOverHeader.png")) == NULL)
+	if ((GameOverFrame = LoadTexture(Continue, Error, "GameOverHeader.png")) == NULL)
 		return;
 
 	InitializePlatform();
@@ -189,21 +195,57 @@ void Finalize()
 	uint32_t i;
 	StopBGM();
 	FinalizeAudio();
+	if (Screen != NULL)
+	{
+		SDL_DestroyTexture(Screen);
+		Screen = NULL;
+	}
 	for (i = 0; i < BG_LAYER_COUNT; i++)
 	{
-		SDL_FreeSurface(BackgroundImages[i]);
-		BackgroundImages[i] = NULL;
+		if (BackgroundImages[i] != NULL)
+		{
+			SDL_DestroyTexture(BackgroundImages[i]);
+			BackgroundImages[i] = NULL;
+		}
 	}
 	for (i = 0; i < TITLE_FRAME_COUNT; i++)
 	{
-		SDL_FreeSurface(TitleScreenFrames[i]);
-		TitleScreenFrames[i] = NULL;
+		if (TitleScreenFrames[i] != NULL)
+		{
+			SDL_DestroyTexture(TitleScreenFrames[i]);
+			TitleScreenFrames[i] = NULL;
+		}
 	}
-	SDL_FreeSurface(CharacterFrames);
-	CharacterFrames = NULL;
-	SDL_FreeSurface(ColumnImage);
-	ColumnImage = NULL;
-	SDL_FreeSurface(GameOverFrame);
-	GameOverFrame = NULL;
+	if (CharacterFrames != NULL)
+	{
+		SDL_DestroyTexture(CharacterFrames);
+		CharacterFrames = NULL;
+	}
+	if (ColumnImage != NULL)
+	{
+		SDL_DestroyTexture(ColumnImage);
+		ColumnImage = NULL;
+	}
+	if (CollisionImage != NULL)
+	{
+		SDL_DestroyTexture(CollisionImage);
+		CollisionImage = NULL;
+	}
+	if (GameOverFrame != NULL)
+	{
+		SDL_DestroyTexture(GameOverFrame);
+		GameOverFrame = NULL;
+	}
+	if (Renderer != NULL)
+	{
+		SDL_DestroyRenderer(Renderer);
+		Renderer = NULL;
+	}
+	if (Window != NULL)
+	{
+		SDL_DestroyWindow(Window);
+		Window = NULL;
+	}
+	IMG_Quit();
 	SDL_Quit();
 }
